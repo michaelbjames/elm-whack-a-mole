@@ -1,11 +1,14 @@
-import Window
 import Mouse
 import Graphics.Input
+import Random
 import Debug
 
+windowXSize = 500
+windowYSize = 500
+elephantProbability = 0.25
+
 data Input
-    = Window (Int, Int)
-    | GameTick -- Update every 300ms
+    = GameTick RandomValues -- Update every second and half
     | Whack
 
 type Status = {
@@ -17,30 +20,46 @@ type Status = {
     doMole : Bool
     }
 
+type RandomValues = {
+    coordinates : (Int, Int),
+    probability : Float -- [0-1)
+}
+
 targetInput : Graphics.Input.Input ()
 targetInput = Graphics.Input.input ()
 
 inputs : Signal Input
-inputs = merges [
-    lift Window Window.dimensions,
-    lift (always Whack) <| targetInput.signal,
-    lift (always GameTick) <| every second
-    ]
+inputs = 
+    let
+        ticker = every 1500
+        randomness1 = Random.float ticker -- Signal Float
+        randomness2 = Random.float ticker -- Signal Float
+        randomness3 = Random.float ticker -- Signal Float
+        randoms s1 s2 s3 = {
+            coordinates = (ceiling (s1 * 10000) % windowXSize, ceiling (s2 * 10000) % windowYSize),
+            probability = s3
+            }
+    in
+        merges [
+            lift (always Whack) <| targetInput.signal,
+            lift GameTick <| lift3 randoms randomness1 randomness2 randomness3
+        ]
 
 emptyStatus = {
     score = 0,
     playsLeft = 10,
     moleOnScreen = False,
-    windowSize = (500, 500),
+    windowSize = (windowXSize, windowYSize),
     targetPosition = (250, 250),
     doMole = True
     }
 
 update : Input -> Status -> Status
 update input status = case input of
-    Window xy -> {status | windowSize <- xy}
-    GameTick -> {status |
+    GameTick rvs -> {status |
         moleOnScreen <- not status.moleOnScreen,
+        doMole <- rvs.probability > elephantProbability,
+        targetPosition <- rvs.coordinates,
         playsLeft <- if status.playsLeft > 0 then status.playsLeft - 1 else 0
         }
     Whack -> {status |
