@@ -3,9 +3,14 @@ import Graphics.Input
 import Random
 import Debug
 
+-- CONSTANTS
+
 windowXSize = 500
 windowYSize = 500
 elephantProbability = 0.25
+
+
+-- MODEL
 
 data Input
     = GameTick RandomValues -- Update every second and half
@@ -36,23 +41,19 @@ inputs =
         randomness2 = Random.float ticker -- Signal Float
         randomness3 = Random.float ticker -- Signal Float
         randoms s1 s2 s3 = {
-            coordinates = (ceiling (s1 * 10000) % windowXSize, ceiling (s2 * 10000) % windowYSize),
+            coordinates =
+                (ceiling (s1 * 10000) % windowXSize,
+                 ceiling (s2 * 10000) % windowYSize),
             probability = s3
             }
     in
         merges [
-            lift (always Whack) <| targetInput.signal,
-            lift GameTick <| lift3 randoms randomness1 randomness2 randomness3
+            lift (always Whack) (targetInput.signal),
+            lift GameTick (lift3 randoms randomness1 randomness2 randomness3)
         ]
 
-emptyStatus = {
-    score = 0,
-    playsLeft = 10,
-    moleOnScreen = False,
-    windowSize = (windowXSize, windowYSize),
-    targetPosition = (250, 250),
-    doMole = True
-    }
+
+-- UPDATE
 
 update : Input -> Status -> Status
 update input status = case input of
@@ -70,7 +71,20 @@ update input status = case input of
 gameState : Signal Status
 gameState = foldp update emptyStatus inputs
 
+emptyStatus : Status
+emptyStatus = {
+    score = 0,
+    playsLeft = 10,
+    moleOnScreen = False,
+    windowSize = (windowXSize, windowYSize),
+    targetPosition = (250, 250),
+    doMole = True
+    }
+
+main : Signal Element
 main = lift draw (lift (Debug.watch "Game") gameState)
+
+-- VIEW
 
 draw : Status -> Element
 draw status =
